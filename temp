@@ -1,0 +1,50 @@
+using RestSharp;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Net.WebSockets;
+using System.Net;
+using Eavesdrop;
+
+namespace SocketTest
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            DoStuff();
+            Console.ReadLine();
+            Eavesdropper.Terminate();
+        }
+
+        public static int Count = 0;
+
+        private static async void DoStuff()
+        {
+            Eavesdropper.Initiate(8686);
+            Eavesdropper.Certifier.CreateTrustedRootCertificate();
+            if (Eavesdropper.IsIntercepting)
+            {
+                Console.WriteLine("Intercepting!");
+                Eavesdropper.ResponseIntercepted += Eavesdropper_ResponseIntercepted;
+            }
+        }
+
+        private static void Eavesdropper_ResponseIntercepted(object sender, ResponseInterceptedEventArgs e)
+        {
+            if (e.Response.ResponseUri.ToString().Contains("/api/v1/users/auth"))
+            {
+                string payload = Encoding.Default.GetString(e.Payload);
+                string newPayload = payload.Replace("401", "200, \"token\":\"M1337337133713371337133713371337\"");
+                Console.WriteLine($"{payload} ==> {newPayload}");
+
+                e.Payload = Encoding.Default.GetBytes(newPayload);
+                Count++;
+                if (Count == 2) Eavesdropper.Terminate();
+            }
+        }
+    }
+}
